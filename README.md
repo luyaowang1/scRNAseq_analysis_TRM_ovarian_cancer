@@ -1,29 +1,23 @@
-# scRNAseq_analysis_TRM_ovarian_cancer
-# scRNA-seq QC and analysis
+# Custom signature analysis for scRNA-seq data
 
-This repository contains the R scripts used for single-cell RNA-seq data processing and analysis.
+This repository contains the custom analysis code used for signature correlation analysis in the study.
 
-## Overview
-
-The analysis includes:
-- Quality control filtering
-- Ambient RNA correction using decontX
-- Doublet detection using DoubletFinder
-- Clustering and UMAP visualization
-
-All analyses were performed using standard workflows implemented in Seurat and related packages.
+The workflow includes:
+- ssGSEA scoring using GSVA
+- correlation analysis between published and study-derived gene signatures
+- analysis of shared CD8 T cell populations across FT and tumor samples
 
 ## Files
 
-- `analysis_pipeline.R`  
-  Main script for data processing and analysis.
+- `custom_signature_analysis.Rmd`  
+  Main analysis workflow.
 
 - `sessionInfo.txt`  
-  R session information for reference.
+  R session information.
 
 ## Notes
 
-The scripts reflect the workflow used in this study and are provided for transparency.  
-Depending on the local environment and data structure, minor adjustments may be required to run the code.
+The scripts are provided for transparency and reference purposes.  
+Minor adjustments to file paths or computational environments may be required to run the analysis.
 
-Some sample-specific handling steps are retained in the script.
+The analysis was performed using standard publicly available R packages, including Seurat and GSVA.
