@@ -1,0 +1,136 @@
+---
+title: "custom_signature_analysis"
+author: "luwang"
+date: "2026-05-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#library
+```{r}
+library(Seurat)
+  library(GSVA)
+  library(readxl)
+  library(dplyr)
+  library(ggplot2)
+```
+#input file
+```{r}
+dir.create("results", showWarnings = FALSE, recursive = TRUE)
+
+Tumor_dge <- read.csv(
+  "Tumor_dge_results.csv"
+)
+
+FT_dge <- read.csv(
+  "FT_dge_results.csv"
+)
+
+correlation_Object_CD8 <- readRDS("correlation_Object_CD8.rds")
+shared_seurat_obj <- subset(correlation_Object_CD8, subset = FT_top50Tumor_share == "Shared_with_FT")
+
+published_signatures2 <- read_excel("science.abl5447_table_s4.xlsx", sheet = 2)
+```
+#function
+```{r}
+run_ssgsea_correlation <- function(seurat_obj, geneset1, geneset2, analysis_name, out_dir = "results") {
+  expr_data <- as.matrix(GetAssayData(seurat_obj, assay = "RNA", slot = "data"))
+
+  geneset1 <- unique(na.omit(intersect(geneset1, rownames(expr_data))))
+  geneset2 <- unique(na.omit(intersect(geneset2, rownames(expr_data))))
+
+  if (length(geneset1) < 2 || length(geneset2) < 2) {
+    stop(paste0("Not enough overlapping genes for ", analysis_name))
+  }
+
+  genesets <- list(geneset1 = geneset1, geneset2 = geneset2)
+  gsva_results <- GSVA::gsva(expr_data, genesets, method = "ssgsea")
+  gsva_scores <- as.data.frame(t(gsva_results))
+
+  correlation <- cor(gsva_scores$geneset1, gsva_scores$geneset2, use = "pairwise.complete.obs")
+
+  png(file.path(out_dir, paste0(analysis_name, "_ssgsea_correlation.png")), width = 1800, height = 1500, res = 200)
+  plot(
+    gsva_scores$geneset1, gsva_scores$geneset2,
+    xlab = "Score of geneset1",
+    ylab = "Score of geneset2",
+    pch = 19, col = "blue",
+    main = analysis_name
+  )
+  abline(lm(gsva_scores$geneset2 ~ gsva_scores$geneset1), col = "red", lwd = 2)
+  text(
+    x = min(gsva_scores$geneset1, na.rm = TRUE),
+    y = max(gsva_scores$geneset2, na.rm = TRUE),
+    labels = paste0("Correlation: ", round(correlation, 2)),
+    pos = 4, col = "red"
+  )
+  dev.off()
+
+  write.csv(
+    data.frame(
+      analysis = analysis_name,
+      correlation = correlation,
+      n_geneset1 = length(geneset1),
+      n_geneset2 = length(geneset2)
+    ),
+    file.path(out_dir, paste0(analysis_name, "_summary.csv")),
+    row.names = FALSE
+  )
+
+  invisible(list(
+    correlation = correlation,
+    gsva_scores = gsva_scores,
+    geneset1 = geneset1,
+    geneset2 = geneset2
+  ))
+}
+```
+#Tumor signature versus FT signature
+```{r}
+geneset_Tumor <- Tumor_dge$gene
+geneset_FT <- FT_dge$gene
+
+run_ssgsea_correlation(
+  seurat_obj = correlation_Object_CD8,
+  geneset1 = geneset_Tumor,
+  geneset2 = geneset_FT,
+  analysis_name = "all_CD8_Tumor_vs_FT"
+)
+
+run_ssgsea_correlation(
+  seurat_obj = shared_seurat_obj,
+  geneset1 = geneset_Tumor,
+  geneset2 = geneset_FT,
+  analysis_name = "shared_CD8_Tumor_vs_FT"
+)
+```
+
+#FT shared data versus NeoTCR8
+```{r}
+geneset_NeoTCR8 <- na.omit(published_signatures2$NeoTCR8)
+
+shared_seurat_obj_FT <- subset(shared_seurat_obj, subset = sample == "FT")
+
+run_ssgsea_correlation(
+  seurat_obj = shared_seurat_obj_FT,
+  geneset1 = geneset_NeoTCR8,
+  geneset2 = FT_dge$gene,
+  analysis_name = "FT_shared_NeoTCR8_vs_FT_DGE"
+)
+```
+
+#Tumor shared data versus NeoTCR8
+```{r}
+shared_seurat_obj_Tumor <- subset(shared_seurat_obj, subset = sample == "Tumor")
+
+run_ssgsea_correlation(
+  seurat_obj = shared_seurat_obj_Tumor,
+  geneset1 = geneset_NeoTCR8,
+  geneset2 = Tumor_dge$gene,
+  analysis_name = "Tumor_shared_NeoTCR8_vs_Tumor_DGE"
+)
+```
+
+
